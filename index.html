@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>迅得-小資族的血汗錢 (雲端同步版)</title>
+  <title>迅得-小資族的血汗錢 (Google Sheets 同步版)</title>
   <style>
     :root {
       --primary: #1976d2;
@@ -287,7 +287,7 @@
     <div class="header-row">
       <h1>
         迅得-小資族的血汗錢
-        <span class="tag">加班紀錄・薪資試算・結算日（Gist雲端同步）</span>
+        <span class="tag">加班紀錄・薪資試算・結算日（Google Sheets 雲端同步）</span>
       </h1>
       <button id="btnSettings" class="btn-icon" title="開啟 / 關閉設定">
         ⚙
@@ -477,10 +477,10 @@
           </button>
         </div>
         <div class="note">
-          JSON：完整備份所有年份的打卡、加班、薪資與顯示設定（不含 Gist 密鑰）。<br>
+          JSON：完整備份所有年份的打卡、加班、薪資與顯示設定（不含 Web App URL）。<br>
           CSV：輸出目前年份的全年每日明細，可用 Excel 開啟。<br>
           PDF：呼叫瀏覽器列印，選「另存為 PDF」即可。<br>
-          **注意：** 匯入 JSON 會覆蓋雲端 Gist 上的所有資料。
+          **注意：** 匯入 JSON 會覆蓋雲端 Google Sheets 上的所有資料。
         </div>
       </div>
     </div>
@@ -690,86 +690,85 @@
 
   <script>
     // =================================================================
-    // Gist 雲端同步設定 (已移除本地端儲存)
+    // Google Sheets 雲端同步設定 (已移除本地端儲存)
     // =================================================================
-    const GIST_ID = "3cc2bcacedfb21435f74ce15ef37b951";
-    // 警告：將 PAT 寫在前端程式碼中極不安全！
-    const PAT = "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"; 
-    const GIST_FILENAME = "overtime_data.json";
-
+    // *** 請務必替換成您部署 Google Apps Script Web App 後取得的 URL ***
+    const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbylclYCB1sDxxhwVwjJqyoT8twgVwK3MfEt4sdTVVj5JLYyEM2g0QDvs-Yev7KhP2gw/exec"; 
+    
     let currentYear = 2025;
     let dayData = {}; // YYYY-MM-DD -> { start, end, leaveType }
 
-    // Gist 相關 API 函式
-    async function fetchGistContent() {
-        const url = `https://api.github.com/gists/${GIST_ID}`;
-        const headers = {
-            'Authorization': `token ${PAT}`,
-            'Accept': 'application/vnd.github.v3+json'
-        };
+    // Google Apps Script Web App 相關 API 函式
+    async function fetchSheetContent() {
+        if (SHEET_WEB_APP_URL === "在此貼上您的 Apps Script 部署 URL") {
+            console.error("SHEET_WEB_APP_URL 尚未設定。無法載入資料。");
+            return null;
+        }
 
         try {
-            const response = await fetch(url, { headers });
+            const response = await fetch(SHEET_WEB_APP_URL);
             if (!response.ok) {
-                // 404 Not Found is expected if Gist ID is wrong or PAT has no read access.
-                if (response.status === 404) {
-                    console.warn(`Gist ID ${GIST_ID} 未找到或權限不足。將使用預設設定。`);
-                    return null;
-                }
-                throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                throw new Error(`Web App 錯誤: ${response.status} ${response.statusText}`);
             }
-            const gist = await response.json();
+            const data = await response.json();
             
-            if (gist.files && gist.files[GIST_FILENAME]) {
-                const content = gist.files[GIST_FILENAME].content;
-                console.log("State successfully loaded from Gist.");
-                return content; // This is the JSON string
+            if (data.error) {
+                 console.error("Apps Script 執行錯誤:", data.error);
+                 alert(`載入雲端資料失敗 (Apps Script 錯誤):\n${data.error}`);
+                 return null;
+            }
+            
+            if (data.content) {
+                console.log("State successfully loaded from Google Sheets.");
+                return data.content; // This is the JSON string
             } else {
-                console.warn(`Gist 檔案 '${GIST_FILENAME}' 在 Gist ID: ${GIST_ID} 中未找到。將使用預設設定。`);
+                console.warn("Google Sheets 儲存格 A1 為空，使用預設設定。");
                 return null;
             }
         } catch (error) {
             console.error("載入雲端資料失敗:", error);
-            alert(`載入雲端資料失敗。請檢查 GIST ID、PAT 或網路連線。\n錯誤: ${error.message}`);
+            alert(`載入雲端資料失敗。請檢查 Web App URL 或網路連線。\n錯誤: ${error.message}`);
             return null;
         }
     }
 
-    async function updateGistContent(jsonString) {
-        const url = `https://api.github.com/gists/${GIST_ID}`;
-        const headers = {
-            'Authorization': `token ${PAT}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-        };
+    async function updateSheetContent(jsonString) {
+        if (SHEET_WEB_APP_URL === "在此貼上您的 Apps Script 部署 URL") {
+            console.error("SHEET_WEB_APP_URL 尚未設定。無法儲存資料。");
+            return false;
+        }
         
-        const payload = {
-            description: "Auto-saved overtime data",
-            files: {
-                [GIST_FILENAME]: {
-                    content: jsonString
-                }
-            }
-        };
-
+        const payload = { content: jsonString };
+        
         try {
-            const response = await fetch(url, { 
-                method: 'PATCH', 
-                headers: headers, 
-                body: JSON.stringify(payload) 
+            const response = await fetch(SHEET_WEB_APP_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`GitHub API Error: ${response.status} ${response.statusText}. Response: ${errorText.substring(0, 100)}...`);
+                throw new Error(`Web App 錯誤: ${response.status} ${response.statusText}`);
             }
-            console.log("State successfully saved to Gist.");
+            
+            const data = await response.json();
+
+            if (data.error || data.status === "error") {
+                 const errMsg = data.error || data.message || "未知 Apps Script 錯誤";
+                 console.error("Apps Script 執行錯誤:", errMsg);
+                 // alert(`儲存雲端資料失敗 (Apps Script 錯誤):\n${errMsg}`); // Too disruptive
+                 return false;
+            }
+
+            console.log("State successfully saved to Google Sheets.");
             return true;
 
         } catch (error) {
             console.error("儲存雲端資料失敗:", error);
-            // 由於儲存操作非常頻繁，僅在控制台顯示錯誤，避免過度打擾使用者
-            // alert(`儲存雲端資料失敗。請檢查 PAT 或網路連線。\n錯誤: ${error.message}`);
+            // alert(`儲存雲端資料失敗。請檢查 Web App URL 或網路連線。\n錯誤: ${error.message}`); // Too disruptive
             return false;
         }
     }
@@ -822,16 +821,16 @@
         return state;
     }
 
-    // 儲存狀態至 Gist
+    // 儲存狀態至 Google Sheets
     async function saveState() {
         const state = getCurrentStateObject();
         const json = JSON.stringify(state, null, 2);
-        await updateGistContent(json);
+        await updateSheetContent(json);
     }
 
-    // 從 Gist 載入狀態
+    // 從 Google Sheets 載入狀態
     async function loadState() {
-        const stateJson = await fetchGistContent();
+        const stateJson = await fetchSheetContent();
         if (!stateJson) return; // 載入失敗或檔案不存在，使用預設值
 
         try {
@@ -893,7 +892,7 @@
             }
 
         } catch (error) {
-            console.error("解析 Gist JSON 錯誤:", error);
+            console.error("解析 Sheets JSON 錯誤:", error);
             alert("雲端資料格式錯誤，已重設為預設設定。");
         }
     }
@@ -1187,10 +1186,7 @@
             } else if (e > 12*60 + 30) {
                  result.meals = 1; // 有過 12:30 且沒過 18:30，算 1 餐
             } else {
-                 result.meals = 0; // 沒到 12:30，算 0 餐 (這比較嚴格，與原始備註"只要有加班，基本一餐"衝突)
-                 // 依照原始備註 "只要有加班，基本一餐"，但若沒過用餐時間，則餐費可能不成立
-                 // 這裡暫時維持原邏輯：只要有加班時數，至少 1 餐。
-                 result.meals = 1; 
+                 result.meals = 1; // 依照原始備註 "只要有加班，基本一餐"
             }
         } else {
             result.meals = 0;
@@ -1690,7 +1686,7 @@
     // =================================================================
     
     async function init() {
-      // 載入 Gist 雲端資料 (等待完成)
+      // 載入 Sheets 雲端資料 (等待完成)
       await loadState();
       
       // 初始化年份資料
@@ -1782,7 +1778,7 @@
         document.getElementById("settingsPanel").classList.toggle("hidden");
       });
 
-      // 匯入 JSON (上傳至 Gist)
+      // 匯入 JSON (上傳至 Sheets)
       const importInput = document.getElementById("importJsonInput");
       if (importInput) {
         importInput.addEventListener("change", async (e) => { // 必須是 async
@@ -1794,10 +1790,10 @@
               const text = ev.target.result;
               JSON.parse(text); // 驗證 JSON 格式
               
-              // 1. 上傳至 Gist (覆蓋)
-              const success = await updateGistContent(text);
+              // 1. 上傳至 Google Sheets (覆蓋)
+              const success = await updateSheetContent(text);
               if (!success) {
-                  alert("匯入失敗：無法上傳至雲端 Gist。");
+                  alert("匯入失敗：無法上傳至雲端 Google Sheets。");
                   return;
               }
 
@@ -1810,7 +1806,7 @@
               updatePayPeriodSummary();
               renderRandomMeme();
               
-              alert("匯入成功！資料已同步至雲端 Gist。");
+              alert("匯入成功！資料已同步至 Google Sheets。");
               
             } catch (err) {
               console.warn(err);
