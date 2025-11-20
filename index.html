@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>迅得-小資族的血汗錢 (Google Sheets 同步版)</title>
+  <title>迅得-小資族的血汗錢</title>
   <style>
     :root {
       --primary: #1976d2;
@@ -267,6 +267,7 @@
 </head>
 <body>
   <div class="page">
+    <!-- 梗圖區 -->
     <div id="memeBar" class="card meme-card">
       <div class="meme-text-block">
         <div id="memeTitle" class="meme-title">梗載入中...</div>
@@ -284,19 +285,22 @@
       </div>
     </div>
 
+    <!-- 標題 + 齒輪 -->
     <div class="header-row">
       <h1>
         迅得-小資族的血汗錢
-        <span class="tag">加班紀錄・薪資試算・結算日（Google Sheets 雲端同步）</span>
+        <span class="tag">加班紀錄・薪資試算・結算日</span>
       </h1>
       <button id="btnSettings" class="btn-icon" title="開啟 / 關閉設定">
         ⚙
       </button>
     </div>
 
+    <!-- 設定面板 -->
     <div id="settingsPanel" class="card settings-panel hidden">
       <h2>設定</h2>
 
+      <!-- 薪資結構 -->
       <div class="settings-block">
         <div class="settings-title">薪資結構</div>
         <div class="flex-row">
@@ -359,6 +363,7 @@
         </div>
       </div>
 
+      <!-- 結算日 -->
       <div class="settings-block" style="margin-top:12px;">
         <div class="settings-title">結算日設定 & 薪資結算月份</div>
         <div class="note">
@@ -404,6 +409,7 @@
         </div>
       </div>
 
+      <!-- 主頁顯示設定 -->
       <div class="settings-block" style="margin-top:12px;">
         <div class="settings-title">主頁顯示設定</div>
         <div>
@@ -459,6 +465,7 @@
         </div>
       </div>
 
+      <!-- 匯出 / 匯入 -->
       <div class="settings-block" style="margin-top:12px;">
         <div class="settings-title">資料備份 / 匯出</div>
         <div class="flex-row">
@@ -477,14 +484,14 @@
           </button>
         </div>
         <div class="note">
-          JSON：完整備份所有年份的打卡、加班、薪資與顯示設定（不含 Web App URL）。<br>
+          JSON：完整備份所有年份的打卡、加班、薪資與顯示設定，可匯入到另一台電腦。<br>
           CSV：輸出目前年份的全年每日明細，可用 Excel 開啟。<br>
-          PDF：呼叫瀏覽器列印，選「另存為 PDF」即可。<br>
-          **注意：** 匯入 JSON 會覆蓋雲端 Google Sheets 上的所有資料。
+          PDF：呼叫瀏覽器列印，選「另存為 PDF」即可。
         </div>
       </div>
     </div>
 
+    <!-- 月份 / 年份 -->
     <div class="card">
       <h2>日曆月份選擇</h2>
       <div class="flex-row">
@@ -517,6 +524,7 @@
       </div>
     </div>
 
+    <!-- on call -->
     <div class="card">
       <h2>on call 計算</h2>
       <div class="flex-row">
@@ -532,6 +540,7 @@
       </div>
     </div>
 
+    <!-- 每日表 -->
     <div class="card scroll-card">
       <h2>每日加班 & 假別紀錄（目前顯示月份）</h2>
       <table>
@@ -564,6 +573,7 @@
       </div>
     </div>
 
+    <!-- 一、本月加班統計 -->
     <div id="sectionMonthlyOT" class="card">
       <h2>一、本月加班統計（顯示月份）</h2>
       <div class="summary-grid">
@@ -602,6 +612,7 @@
       </div>
     </div>
 
+    <!-- 二、本月誤餐統計 -->
     <div id="sectionMonthlyMeal" class="card">
       <h2>二、本月誤餐統計（顯示月份）</h2>
       <div class="summary-grid">
@@ -616,6 +627,7 @@
       </div>
     </div>
 
+    <!-- 三、薪資試算 -->
     <div id="sectionSalary" class="card">
       <h2>三、薪資試算（結算區間）</h2>
       <div class="note" id="payPeriodLabel2"></div>
@@ -689,217 +701,11 @@
   </div>
 
   <script>
-    // =================================================================
-    // Google Sheets 雲端同步設定 (已移除本地端儲存)
-    // =================================================================
-    // *** 請務必替換成您部署 Google Apps Script Web App 後取得的 URL ***
-    const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby7Q-5Zd4WFtNOQkgmPHx88li6eJBo0xiLS5tZqLjsxJ7qQBCaGn7pFwHeAgF8-T-sC/exec"; 
-    
+    const STORAGE_KEY = "xunde_overtime_money_state_v1";
+
     let currentYear = 2025;
     let dayData = {}; // YYYY-MM-DD -> { start, end, leaveType }
 
-    // Google Apps Script Web App 相關 API 函式
-    async function fetchSheetContent() {
-        if (SHEET_WEB_APP_URL === "在此貼上您的 Apps Script 部署 URL") {
-            console.error("SHEET_WEB_APP_URL 尚未設定。無法載入資料。");
-            return null;
-        }
-
-        try {
-            const response = await fetch(SHEET_WEB_APP_URL);
-            if (!response.ok) {
-                throw new Error(`Web App 錯誤: ${response.status} ${response.statusText}`);
-            }
-            const data = await response.json();
-            
-            if (data.error) {
-                 console.error("Apps Script 執行錯誤:", data.error);
-                 alert(`載入雲端資料失敗 (Apps Script 錯誤):\n${data.error}`);
-                 return null;
-            }
-            
-            if (data.content) {
-                console.log("State successfully loaded from Google Sheets.");
-                return data.content; // This is the JSON string
-            } else {
-                console.warn("Google Sheets 儲存格 A1 為空，使用預設設定。");
-                return null;
-            }
-        } catch (error) {
-            console.error("載入雲端資料失敗:", error);
-            alert(`載入雲端資料失敗。請檢查 Web App URL 或網路連線。\n錯誤: ${error.message}`);
-            return null;
-        }
-    }
-
-    async function updateSheetContent(jsonString) {
-        if (SHEET_WEB_APP_URL === "在此貼上您的 Apps Script 部署 URL") {
-            console.error("SHEET_WEB_APP_URL 尚未設定。無法儲存資料。");
-            return false;
-        }
-        
-        const payload = { content: jsonString };
-        
-        try {
-            const response = await fetch(SHEET_WEB_APP_URL, {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                throw new Error(`Web App 錯誤: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-
-            if (data.error || data.status === "error") {
-                 const errMsg = data.error || data.message || "未知 Apps Script 錯誤";
-                 console.error("Apps Script 執行錯誤:", errMsg);
-                 // alert(`儲存雲端資料失敗 (Apps Script 錯誤):\n${errMsg}`); // Too disruptive
-                 return false;
-            }
-
-            console.log("State successfully saved to Google Sheets.");
-            return true;
-
-        } catch (error) {
-            console.error("儲存雲端資料失敗:", error);
-            // alert(`儲存雲端資料失敗。請檢查 Web App URL 或網路連線。\n錯誤: ${error.message}`); // Too disruptive
-            return false;
-        }
-    }
-    // =================================================================
-    // 狀態管理函式
-    // =================================================================
-    
-    // 取得當前應用程式狀態物件
-    function getCurrentStateObject() {
-        const state = {
-            currentYear,
-            dayData,
-            salary: {
-                baseSalary: document.getElementById("baseSalary").value,
-                dutyAllowance: document.getElementById("dutyAllowance").value,
-                trafficAllowance: document.getElementById("trafficAllowance").value,
-                maintenanceAllowance: document.getElementById("maintenanceAllowance").value,
-                stockCompanyIncome: document.getElementById("stockCompanyIncome").value,
-                laborInsurance: document.getElementById("laborInsurance").value,
-                healthInsurance: document.getElementById("healthInsurance").value,
-                stockCompanyDeduct: document.getElementById("stockCompanyDeduct").value,
-                stockSelfDeduct: document.getElementById("stockSelfDeduct").value
-            },
-            cutoffs: {
-                1: document.getElementById("cutoff1").value, 2: document.getElementById("cutoff2").value, 3: document.getElementById("cutoff3").value, 4: document.getElementById("cutoff4").value,
-                5: document.getElementById("cutoff5").value, 6: document.getElementById("cutoff6").value, 7: document.getElementById("cutoff7").value, 8: document.getElementById("cutoff8").value,
-                9: document.getElementById("cutoff9").value, 10: document.getElementById("cutoff10").value, 11: document.getElementById("cutoff11").value, 12: document.getElementById("cutoff12").value
-            },
-            visibility: {
-                showMonthlyOT: document.getElementById("chkShowMonthlyOT").checked,
-                showMonthlyMeal: document.getElementById("chkShowMonthlyMeal").checked,
-                showSalary: document.getElementById("chkShowSalary").checked,
-                fields: {}
-            },
-            onCallCount: document.getElementById("onCallCount").value,
-            payMonth: document.getElementById("payMonthSelect").value
-        };
-
-        const fieldCheckboxIds = [
-            "fieldMonthlyTotalHours", "fieldMonthly133", "fieldMonthly166", "fieldMonthly200", "fieldMonthly267", "fieldMonthlyCompHours", "fieldMonthlyCompCash", "fieldMonthlyOTPay",
-            "fieldMonthlyMealCount", "fieldMonthlyMealFee",
-            "fieldSalaryFixIn", "fieldSalaryFixOut", "fieldSalaryTotalHours", "fieldSalary133", "fieldSalary166", "fieldSalary200", "fieldSalary267",
-            "fieldSalaryOTPay", "fieldSalaryCompCash", "fieldSalaryOncallCount", "fieldSalaryOncallAmount", "fieldSalarySickH", "fieldSalarySickDed", "fieldSalaryPersonalH", "fieldSalaryPersonalDed", "fieldSalaryTotalIncome"
-        ];
-        fieldCheckboxIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) state.visibility.fields[id] = el.checked;
-        });
-
-        return state;
-    }
-
-    // 儲存狀態至 Google Sheets
-    async function saveState() {
-        const state = getCurrentStateObject();
-        const json = JSON.stringify(state, null, 2);
-        await updateSheetContent(json);
-    }
-
-    // 從 Google Sheets 載入狀態
-    async function loadState() {
-        const stateJson = await fetchSheetContent();
-        if (!stateJson) return; // 載入失敗或檔案不存在，使用預設值
-
-        try {
-            const state = JSON.parse(stateJson);
-
-            // 應用狀態
-            if (state.currentYear) currentYear = Number(state.currentYear);
-            document.getElementById("yearInput").value = currentYear;
-            
-            if (state.dayData) dayData = state.dayData;
-
-            if (state.salary) {
-                document.getElementById("baseSalary").value = state.salary.baseSalary ?? "45500";
-                document.getElementById("dutyAllowance").value = state.salary.dutyAllowance ?? "0";
-                document.getElementById("trafficAllowance").value = state.salary.trafficAllowance ?? "0";
-                document.getElementById("maintenanceAllowance").value = state.salary.maintenanceAllowance ?? "0";
-                document.getElementById("stockCompanyIncome").value = state.salary.stockCompanyIncome ?? "0";
-                document.getElementById("laborInsurance").value = state.salary.laborInsurance ?? "0";
-                document.getElementById("healthInsurance").value = state.salary.healthInsurance ?? "0";
-                document.getElementById("stockCompanyDeduct").value = state.salary.stockCompanyDeduct ?? "0";
-                document.getElementById("stockSelfDeduct").value = state.salary.stockSelfDeduct ?? "0";
-            }
-            if (state.cutoffs) {
-                for (let m = 1; m <= 12; m++) {
-                    const v = state.cutoffs[m] ?? document.getElementById("cutoff" + m).value;
-                    document.getElementById("cutoff" + m).value = v;
-                }
-            }
-            if (state.visibility) {
-                document.getElementById("chkShowMonthlyOT").checked = !!state.visibility.showMonthlyOT;
-                document.getElementById("chkShowMonthlyMeal").checked = !!state.visibility.showMonthlyMeal;
-                document.getElementById("chkShowSalary").checked = !!state.visibility.showSalary;
-                const f = state.visibility.fields || {};
-                function setField(id) {
-                    const el = document.getElementById(id);
-                    if (el && f.hasOwnProperty(id)) {
-                        el.checked = !!f[id];
-                    }
-                }
-                [ 
-                    "fieldMonthlyTotalHours", "fieldMonthly133", "fieldMonthly166",
-                    "fieldMonthly200", "fieldMonthly267", "fieldMonthlyCompHours",
-                    "fieldMonthlyCompCash", "fieldMonthlyOTPay",
-                    "fieldMonthlyMealCount", "fieldMonthlyMealFee",
-                    "fieldSalaryFixIn", "fieldSalaryFixOut", "fieldSalaryTotalHours",
-                    "fieldSalary133", "fieldSalary166", "fieldSalary200", "fieldSalary267",
-                    "fieldSalaryOTPay", "fieldSalaryCompCash",
-                    "fieldSalaryOncallCount", "fieldSalaryOncallAmount",
-                    "fieldSalarySickH", "fieldSalarySickDed",
-                    "fieldSalaryPersonalH", "fieldSalaryPersonalDed",
-                    "fieldSalaryTotalIncome"
-                ].forEach(setField);
-            }
-            if (state.onCallCount) {
-                document.getElementById("onCallCount").value = state.onCallCount;
-            }
-            if (state.payMonth) {
-                document.getElementById("payMonthSelect").value = state.payMonth;
-            }
-
-        } catch (error) {
-            console.error("解析 Sheets JSON 錯誤:", error);
-            alert("雲端資料格式錯誤，已重設為預設設定。");
-        }
-    }
-    
-    // =================================================================
-    // 輔助函式 (保留原始功能)
-    // =================================================================
     const taiwanHolidays2025 = new Set([
       "2025-01-01",
       "2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31",
@@ -929,6 +735,7 @@
       { title: "有人說：錢不是萬能。", subtitle: "我說：但算完 OT 的那一刻，真的很有安全感。", tag: "work" },
       { title: "最浪漫的場合：", subtitle: "不是海邊看日出，是一起在辦公室看結算日。", tag: "work" },
       { title: "大家都說要 work-life balance。", subtitle: "我目前是 work-OT balance，先把 OT balance 起來。", tag: "work" },
+
       // life
       { title: "減肥計畫 Day 1：", subtitle: "晚餐只吃一點點…然後再加一份宵夜。", tag: "life" },
       { title: "鬧鐘設六個時間：", subtitle: "起床只相信最後那一個。", tag: "life" },
@@ -943,23 +750,46 @@
       { title: "打掃房間最可怕的一刻：", subtitle: "不是灰塵，而是找到以前亂買的東西。", tag: "life" },
       { title: "朋友約出去：", subtitle: "答應之前先看一下戶頭餘額跟明天行程。", tag: "life" },
       { title: "所謂療癒：", subtitle: "不是什麼高級行程，是躺在床上滑手機滑到睡著。", tag: "life" },
+
       // mix
       { title: "白天上班、晚上滑手機，", subtitle: "假日在想：到底什麼時候才是真的在休息？", tag: "mix" },
-      { title: "最痛苦的不是加班，", subtitle: "是加班完隔天還要早起上班。", tag: "mix" }
+      { title: "最常用的一句話：", subtitle: "「月底再說啦。」但月底從來沒有比較有錢。", tag: "mix" },
+      { title: "努力工作、努力生活、努力存錢，", subtitle: "然後被房價一次全部打回原形。", tag: "mix" },
+      { title: "活到現在最大的成就感：", subtitle: "不是升職，而是每個月都有撐到發薪日。", tag: "mix" }
     ];
 
-    let allTimes = [];
-    let weekdayEndTimes = [];
-    (function generateTimeOptions() {
+    function renderRandomMeme() {
+      const titleEl = document.getElementById("memeTitle");
+      const subEl = document.getElementById("memeSubtitle");
+      const catSel = document.getElementById("memeCategory");
+      if (!titleEl || !subEl) return;
+
+      const category = catSel ? catSel.value : "all";
+      let pool = memeList;
+      if (category === "work") {
+        pool = memeList.filter(m => m.tag === "work" || m.tag === "mix");
+      } else if (category === "life") {
+        pool = memeList.filter(m => m.tag === "life" || m.tag === "mix");
+      }
+
+      if (pool.length === 0) pool = memeList;
+      const idx = Math.floor(Math.random() * pool.length);
+      const meme = pool[idx];
+      titleEl.textContent = meme.title;
+      subEl.textContent = meme.subtitle;
+    }
+
+    // 時間選單
+    const allTimes = [];
+    const weekdayEndTimes = [];
+    (function buildTimeArrays() {
       for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 60; m += 30) {
+        for (let m of [0, 30]) {
           const hh = String(h).padStart(2, "0");
           const mm = String(m).padStart(2, "0");
           const t = `${hh}:${mm}`;
           allTimes.push(t);
-          if (h * 60 + m >= 17 * 60 || h * 60 + m === 0) { // 17:00 ~ 23:30, 00:00
-            weekdayEndTimes.push(t);
-          }
+          weekdayEndTimes.push(t);
         }
       }
     })();
@@ -972,48 +802,6 @@
         return taiwanHolidays2025.has(`${y}-${m}-${d}`);
       }
       return false;
-    }
-
-    function getHourlyBase() {
-      const base = Number(document.getElementById("baseSalary").value) || 0;
-      const duty = Number(document.getElementById("dutyAllowance").value) || 0;
-      const traffic = Number(document.getElementById("trafficAllowance").value) || 0;
-      // 依勞基法，時薪計算基礎為 (月薪總額 ÷ 30 日 ÷ 8 小時)
-      // 實務上可能用 (本薪 + 職務加給 + 交通津貼) / 240
-      const hourly = Math.round((base + duty + traffic) / 240);
-      return hourly;
-    }
-
-    function recalcSalaryStructureSummary() {
-      const base = Number(document.getElementById("baseSalary").value) || 0;
-      const duty = Number(document.getElementById("dutyAllowance").value) || 0;
-      const traffic = Number(document.getElementById("trafficAllowance").value) || 0;
-      const maint = Number(document.getElementById("maintenanceAllowance").value) || 0;
-      const stockIn = Number(document.getElementById("stockCompanyIncome").value) || 0;
-      
-      const labor = Number(document.getElementById("laborInsurance").value) || 0;
-      const health = Number(document.getElementById("healthInsurance").value) || 0;
-      const stockOut = Number(document.getElementById("stockCompanyDeduct").value) || 0;
-      const stockSelf = Number(document.getElementById("stockSelfDeduct").value) || 0;
-
-      const hourly = getHourlyBase();
-      const fixedIncome = base + duty + traffic + maint + stockIn;
-      const fixedOutgo = labor + health + stockOut + stockSelf;
-
-      document.getElementById("hourlyBaseDisplay").textContent = fmtMoney(hourly);
-      document.getElementById("fixedIncomeDisplay").textContent = fmtMoney(fixedIncome);
-      document.getElementById("fixedOutgoDisplay").textContent = fmtMoney(fixedOutgo);
-
-      // 同步到薪資試算區塊
-      document.getElementById("fixedIncomeMonthly").textContent = fmtMoney(fixedIncome);
-      document.getElementById("fixedOutgoMonthly").textContent = fmtMoney(fixedOutgo);
-    }
-
-    function recalcAll() {
-      recalcSalaryStructureSummary();
-      buildMonthTable();
-      updatePayPeriodSummary();
-      saveState();
     }
 
     function createSelect(options, cssClass) {
@@ -1034,7 +822,7 @@
       const options = [
         { value: "normal", text: "正常上班" },
         { value: "annual", text: "特休" },
-        { value: "comp", text: "補休" },
+        { value: "comp", text: "補修" },
         { value: "sick", text: "病假" },
         { value: "personal", text: "事假" }
       ];
@@ -1059,37 +847,229 @@
     function fmtNumber(n, digits=2) {
       return Number.isFinite(n) ? n.toFixed(digits) : "0";
     }
-
     function fmtMoney(n) {
-      return Number.isFinite(n) ? Math.round(n).toLocaleString() : "0";
+      return Number.isFinite(n) ? Math.round(n).toString() : "0";
+    }
+
+    function saveState() {
+      try {
+        const state = {
+          currentYear,
+          dayData,
+          salary: {
+            baseSalary: document.getElementById("baseSalary").value,
+            dutyAllowance: document.getElementById("dutyAllowance").value,
+            trafficAllowance: document.getElementById("trafficAllowance").value,
+            maintenanceAllowance: document.getElementById("maintenanceAllowance").value,
+            stockCompanyIncome: document.getElementById("stockCompanyIncome").value,
+            laborInsurance: document.getElementById("laborInsurance").value,
+            healthInsurance: document.getElementById("healthInsurance").value,
+            stockCompanyDeduct: document.getElementById("stockCompanyDeduct").value,
+            stockSelfDeduct: document.getElementById("stockSelfDeduct").value
+          },
+          cutoffs: {
+            1: document.getElementById("cutoff1").value,
+            2: document.getElementById("cutoff2").value,
+            3: document.getElementById("cutoff3").value,
+            4: document.getElementById("cutoff4").value,
+            5: document.getElementById("cutoff5").value,
+            6: document.getElementById("cutoff6").value,
+            7: document.getElementById("cutoff7").value,
+            8: document.getElementById("cutoff8").value,
+            9: document.getElementById("cutoff9").value,
+            10: document.getElementById("cutoff10").value,
+            11: document.getElementById("cutoff11").value,
+            12: document.getElementById("cutoff12").value
+          },
+          visibility: {
+            showMonthlyOT: document.getElementById("chkShowMonthlyOT").checked,
+            showMonthlyMeal: document.getElementById("chkShowMonthlyMeal").checked,
+            showSalary: document.getElementById("chkShowSalary").checked,
+            fields: {
+              fieldMonthlyTotalHours: document.getElementById("fieldMonthlyTotalHours").checked,
+              fieldMonthly133: document.getElementById("fieldMonthly133").checked,
+              fieldMonthly166: document.getElementById("fieldMonthly166").checked,
+              fieldMonthly200: document.getElementById("fieldMonthly200").checked,
+              fieldMonthly267: document.getElementById("fieldMonthly267").checked,
+              fieldMonthlyCompHours: document.getElementById("fieldMonthlyCompHours").checked,
+              fieldMonthlyCompCash: document.getElementById("fieldMonthlyCompCash").checked,
+              fieldMonthlyOTPay: document.getElementById("fieldMonthlyOTPay").checked,
+              fieldMonthlyMealCount: document.getElementById("fieldMonthlyMealCount").checked,
+              fieldMonthlyMealFee: document.getElementById("fieldMonthlyMealFee").checked,
+              fieldSalaryFixIn: document.getElementById("fieldSalaryFixIn").checked,
+              fieldSalaryFixOut: document.getElementById("fieldSalaryFixOut").checked,
+              fieldSalaryTotalHours: document.getElementById("fieldSalaryTotalHours").checked,
+              fieldSalary133: document.getElementById("fieldSalary133").checked,
+              fieldSalary166: document.getElementById("fieldSalary166").checked,
+              fieldSalary200: document.getElementById("fieldSalary200").checked,
+              fieldSalary267: document.getElementById("fieldSalary267").checked,
+              fieldSalaryOTPay: document.getElementById("fieldSalaryOTPay").checked,
+              fieldSalaryCompCash: document.getElementById("fieldSalaryCompCash").checked,
+              fieldSalaryOncallCount: document.getElementById("fieldSalaryOncallCount").checked,
+              fieldSalaryOncallAmount: document.getElementById("fieldSalaryOncallAmount").checked,
+              fieldSalarySickH: document.getElementById("fieldSalarySickH").checked,
+              fieldSalarySickDed: document.getElementById("fieldSalarySickDed").checked,
+              fieldSalaryPersonalH: document.getElementById("fieldSalaryPersonalH").checked,
+              fieldSalaryPersonalDed: document.getElementById("fieldSalaryPersonalDed").checked,
+              fieldSalaryTotalIncome: document.getElementById("fieldSalaryTotalIncome").checked
+            }
+          },
+          ui: {
+            month: document.getElementById("monthSelect").value,
+            payMonth: document.getElementById("payMonthSelect").value,
+            onCallCount: document.getElementById("onCallCount").value,
+            memeCategory: document.getElementById("memeCategory").value
+          }
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn("saveState error:", e);
+      }
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const state = JSON.parse(raw);
+
+        if (state.currentYear) currentYear = state.currentYear;
+        if (state.dayData) dayData = state.dayData;
+
+        if (state.salary) {
+          document.getElementById("baseSalary").value = state.salary.baseSalary ?? "45500";
+          document.getElementById("dutyAllowance").value = state.salary.dutyAllowance ?? "0";
+          document.getElementById("trafficAllowance").value = state.salary.trafficAllowance ?? "0";
+          document.getElementById("maintenanceAllowance").value = state.salary.maintenanceAllowance ?? "0";
+          document.getElementById("stockCompanyIncome").value = state.salary.stockCompanyIncome ?? "0";
+          document.getElementById("laborInsurance").value = state.salary.laborInsurance ?? "0";
+          document.getElementById("healthInsurance").value = state.salary.healthInsurance ?? "0";
+          document.getElementById("stockCompanyDeduct").value = state.salary.stockCompanyDeduct ?? "0";
+          document.getElementById("stockSelfDeduct").value = state.salary.stockSelfDeduct ?? "0";
+        }
+
+        if (state.cutoffs) {
+          for (let m = 1; m <= 12; m++) {
+            const v = state.cutoffs[m] ?? document.getElementById("cutoff" + m).value;
+            document.getElementById("cutoff" + m).value = v;
+          }
+        }
+
+        if (state.visibility) {
+          document.getElementById("chkShowMonthlyOT").checked = !!state.visibility.showMonthlyOT;
+          document.getElementById("chkShowMonthlyMeal").checked = !!state.visibility.showMonthlyMeal;
+          document.getElementById("chkShowSalary").checked = !!state.visibility.showSalary;
+
+          const f = state.visibility.fields || {};
+          function setField(id) {
+            if (document.getElementById(id) && f.hasOwnProperty(id)) {
+              document.getElementById(id).checked = !!f[id];
+            }
+          }
+          [
+            "fieldMonthlyTotalHours","fieldMonthly133","fieldMonthly166",
+            "fieldMonthly200","fieldMonthly267","fieldMonthlyCompHours",
+            "fieldMonthlyCompCash","fieldMonthlyOTPay",
+            "fieldMonthlyMealCount","fieldMonthlyMealFee",
+            "fieldSalaryFixIn","fieldSalaryFixOut","fieldSalaryTotalHours",
+            "fieldSalary133","fieldSalary166","fieldSalary200","fieldSalary267",
+            "fieldSalaryOTPay","fieldSalaryCompCash",
+            "fieldSalaryOncallCount","fieldSalaryOncallAmount",
+            "fieldSalarySickH","fieldSalarySickDed",
+            "fieldSalaryPersonalH","fieldSalaryPersonalDed",
+            "fieldSalaryTotalIncome"
+          ].forEach(setField);
+        }
+
+        if (state.ui) {
+          if (state.ui.month) document.getElementById("monthSelect").value = state.ui.month;
+          if (state.ui.payMonth) document.getElementById("payMonthSelect").value = state.ui.payMonth;
+          if (state.ui.onCallCount) document.getElementById("onCallCount").value = state.ui.onCallCount;
+          if (state.ui.memeCategory) document.getElementById("memeCategory").value = state.ui.memeCategory;
+          if (state.currentYear) {
+            const yearInput = document.getElementById("yearInput");
+            if (yearInput) yearInput.value = state.currentYear;
+          }
+        }
+      } catch (e) {
+        console.warn("loadState error:", e);
+      }
+    }
+
+    function initYearData(year) {
+      for (let month = 1; month <= 12; month++) {
+        const daysInMonth = new Date(year, month, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateObj = new Date(year, month - 1, day);
+          const y = year;
+          const m = String(month).padStart(2, "0");
+          const d = String(day).padStart(2, "0");
+          const dateStr = `${y}-${m}-${d}`;
+
+          const weekday = dateObj.getDay();
+          const isWeekend = (weekday === 0 || weekday === 6);
+          const holiday = isNationalHoliday(dateObj);
+          const isHolidayType = isWeekend || holiday;
+
+          if (!dayData[dateStr]) {
+            dayData[dateStr] = {
+              start: isHolidayType ? "00:00" : "08:00",
+              end: isHolidayType ? "00:00" : "17:00",
+              leaveType: "normal"
+            };
+          }
+        }
+      }
+    }
+
+    function getHourlyBaseRaw() {
+      const base = Number(document.getElementById("baseSalary").value) || 0;
+      const duty = Number(document.getElementById("dutyAllowance").value) || 0;
+      const traffic = Number(document.getElementById("trafficAllowance").value) || 0;
+      return (base + duty + traffic) / 240;
+    }
+
+    function getHourlyBase() {
+      const raw = getHourlyBaseRaw();
+      return Math.round(raw);
+    }
+
+    function recalcSalaryStructureSummary() {
+      const base = Number(document.getElementById("baseSalary").value) || 0;
+      const duty = Number(document.getElementById("dutyAllowance").value) || 0;
+      const traffic = Number(document.getElementById("trafficAllowance").value) || 0;
+      const maint = Number(document.getElementById("maintenanceAllowance").value) || 0;
+      const stockIn = Number(document.getElementById("stockCompanyIncome").value) || 0;
+      const labor = Number(document.getElementById("laborInsurance").value) || 0;
+      const health = Number(document.getElementById("healthInsurance").value) || 0;
+      const stockOut = Number(document.getElementById("stockCompanyDeduct").value) || 0;
+      const stockSelf = Number(document.getElementById("stockSelfDeduct").value) || 0;
+
+      const hourly = getHourlyBase();
+      const fixedIncome = base + duty + traffic + maint + stockIn;
+      const fixedOutgo = labor + health + stockOut + stockSelf;
+
+      document.getElementById("hourlyBaseDisplay").textContent = fmtMoney(hourly);
+      document.getElementById("fixedIncomeDisplay").textContent = fmtMoney(fixedIncome);
+      document.getElementById("fixedOutgoDisplay").textContent = fmtMoney(fixedOutgo);
+      document.getElementById("fixedIncomeMonthly").textContent = fmtMoney(fixedIncome);
+      document.getElementById("fixedOutgoMonthly").textContent = fmtMoney(fixedOutgo);
     }
 
     function computeDayStats(dateObj, startStr, endStr, hourly, leaveType) {
-      const result = { 
-        h133: 0, h166: 0, h200: 0, h267: 0, comp: 0, 
-        otPay: 0, meals: 0, mealFee: 0, compCash: 0, 
-        sickLeaveHours: 0, personalLeaveHours: 0, 
-        sickDeduction: 0, personalDeduction: 0 
+      const result = {
+        h133: 0, h166: 0, h200: 0, h267: 0,
+        comp: 0, otPay: 0,
+        meals: 0, mealFee: 0,
+        compCash: 0,
+        sickLeaveHours: 0, personalLeaveHours: 0,
+        sickDeduction: 0, personalDeduction: 0
       };
 
       const startMin = parseTimeToMinutes(startStr);
       const endMin = parseTimeToMinutes(endStr);
-      
-      // 無效時間或時薪為零，直接返回
-      if (startMin === null || endMin === null || hourly <= 0) {
-         return result;
-      }
-      
-      let e = endMin;
-      let s = startMin;
-
-      // 處理跨日問題：如果下班時間早於上班時間 (且不是 00:00~07:30 區間)，視為隔日凌晨
-      // 這裡假設隔日下班最晚到 07:30，以簡化計算，實際可能需要更複雜的邏輯
-      if (e <= s && (e > 7*60 + 30)) {
-        // e = e + 24 * 60; // 暫不處理跨日，如果 end < start 且非清晨，視為無效或隔日
-      }
-      if (e <= s) {
-        // 平日無效：下班時間早於或等於上班時間
+      if (startMin === null || endMin === null || endMin <= startMin || hourly <= 0) {
+        return result;
       }
 
       const weekday = dateObj.getDay();
@@ -1098,113 +1078,215 @@
       const isHolidayType = isWeekend || holiday;
 
       if (!isHolidayType) {
-        // --- 平日加班計算 (1.34/1.67/補休) ---
-        // 17:30-19:30 (1.34)
+        const s = startMin;
+        const e = endMin;
+
         const win133Start = 17*60 + 30;
-        const win133End = 19*60 + 30;
-        // 19:30-21:30 (1.67)
-        const win166Start = 19*60 + 30;
-        const win166End = 21*60 + 30;
-        // 21:30 之後 (補休/2倍工時)
-        const winCompStart = 21*60 + 30;
-        
-        let a1 = Math.max(s, win133Start);
-        let b1 = Math.min(e, win133End);
+        const win133End   = 19*60 + 30;
+        const a1 = Math.max(s, win133Start);
+        const b1 = Math.min(e, win133End);
         if (b1 > a1) result.h133 = (b1 - a1) / 60;
 
-        let a2 = Math.max(s, win166Start);
-        let b2 = Math.min(e, win166End);
+        const win166Start = 19*60 + 30;
+        const win166End   = 21*60 + 30;
+        const a2 = Math.max(s, win166Start);
+        const b2 = Math.min(e, win166End);
         if (b2 > a2) result.h166 = (b2 - a2) / 60;
 
-        let a3 = Math.max(s, winCompStart);
-        let b3 = e;
-        if (b3 > a3) result.comp = (b3 - a3) / 60;
-        
-        // 平日餐費：
-        // 下班時間 > 18:30 → 1餐
-        if (e > 18*60 + 30) {
-            result.meals = 1;
-        } else {
-            result.meals = 0;
+        const compStart = 21*60 + 30;
+        if (e > compStart) {
+          const extra = (e - compStart) / 60;
+          result.comp = extra * 2;
         }
 
-        // 平日請假/扣款計算 (08:00–12:00, 13:00–17:00)
+        // 平日誤餐：基本一餐，加班超過 18:30 再加一餐
+        result.meals = 1;
+        if (e >= (18*60 + 30)) result.meals += 1;
+
+      } else {
+        const s = startMin;
+        const e = endMin;
+
+        const win1Start = 8*60;
+        const win1End   = 12*60;
+        const a1 = Math.max(s, win1Start);
+        const b1 = Math.min(e, win1End);
+        if (b1 > a1) result.h200 += (b1 - a1) / 60;
+
+        const win2Start = 13*60;
+        const win2End   = 17*60;
+        const a2 = Math.max(s, win2Start);
+        const b2 = Math.min(e, win2End);
+        if (b2 > a2) result.h200 += (b2 - a2) / 60;
+
+        const win267Start = 17*60 + 30;
+        const win267End   = 21*60 + 30;
+        const a3 = Math.max(s, win267Start);
+        const b3 = Math.min(e, win267End);
+        if (b3 > a3) result.h267 = (b3 - a3) / 60;
+
+        const totalHolidayHours = result.h200 + result.h267;
+
+        // 假日 / 國定假日餐費：
+        // 只要有加班（totalHolidayHours > 0）→ 基本一餐；
+        // 若下班時間 > 18:30 → 兩餐。
+        if (totalHolidayHours > 0) {
+          result.meals = 1;
+          if (e >= (18*60 + 30)) {
+            result.meals = 2;
+          }
+        } else {
+          result.meals = 0;
+        }
+      }
+
+      result.otPay =
+        result.h133 * hourly * 1.34 +
+        result.h166 * hourly * 1.67 +
+        result.h200 * hourly * 2.0 +
+        result.h267 * hourly * 2.67;
+
+      result.otPay = Math.round(result.otPay);
+
+      result.mealFee = result.meals * 130;
+      result.compCash = result.comp * hourly;
+
+      if (!isHolidayType && weekday >= 1 && weekday <= 5) {
         const baseHours = 8;
         const ws1 = 8*60, we1 = 12*60;
         const ws2 = 13*60, we2 = 17*60;
 
-        // 計算正常工時 (08-12, 13-17) 內的打卡時數
-        const w1 = Math.max(0, Math.min(e, we1) - Math.max(s, ws1));
-        const w2 = Math.max(0, Math.min(e, we2) - Math.max(s, ws2));
+        const w1 = Math.max(0, Math.min(endMin, we1) - Math.max(startMin, ws1));
+        const w2 = Math.max(0, Math.min(endMin, we2) - Math.max(startMin, ws2));
         const workHours = (w1 + w2) / 60;
-        
+
         let leaveHours = baseHours - workHours;
-        if (leaveHours < 0) leaveHours = 0; // 不會出現負值
+        if (leaveHours < 0) leaveHours = 0;
 
         if (leaveType === "sick") {
-            result.sickLeaveHours = leaveHours;
-            result.sickDeduction = leaveHours * hourly * 0.5; // 病假半薪
+          result.sickLeaveHours = leaveHours;
+          result.sickDeduction = leaveHours * hourly * 0.5;
         } else if (leaveType === "personal") {
-            result.personalLeaveHours = leaveHours;
-            result.personalDeduction = leaveHours * hourly; // 事假不給薪
+          result.personalLeaveHours = leaveHours;
+          result.personalDeduction = leaveHours * hourly;
         }
-        // annual / comp / normal 都視為正常給薪，不扣款
-
-      } else {
-        // --- 假日/國定假日加班計算 (2.0/2.67) ---
-        // 08:00–12:00, 13:00–17:00 (2.0 倍)
-        const win200Start1 = 8*60; const win200End1 = 12*60;
-        const win200Start2 = 13*60; const win200End2 = 17*60;
-        // 17:30–21:30 (2.67 倍)
-        const win267Start = 17*60 + 30; 
-        const win267End = 21*60 + 30;
-
-        // 2.0 倍 (前 8 小時)
-        let a1 = Math.max(s, win200Start1);
-        let b1 = Math.min(e, win200End1);
-        if (b1 > a1) result.h200 += (b1 - a1) / 60;
-        
-        let a2 = Math.max(s, win200Start2);
-        let b2 = Math.min(e, win200End2);
-        if (b2 > a2) result.h200 += (b2 - a2) / 60;
-
-        // 2.67 倍 (超時 4 小時)
-        let a3 = Math.max(s, win267Start);
-        let b3 = Math.min(e, win267End);
-        if (b3 > a3) result.h267 = (b3 - a3) / 60;
-        
-        const totalHolidayHours = result.h200 + result.h267;
-
-        // 假日餐費：
-        // 只要有加班（totalHolidayHours > 0）→ 基本一餐（午餐 12:30 或晚餐 18:30）
-        // 若下班時間 > 18:30 → 兩餐。
-        if (totalHolidayHours > 0) {
-            result.meals = 1;
-            // 判斷是否涵蓋兩個用餐時間（午餐 12:30，晚餐 18:30）
-            if (e > 18*60 + 30) {
-                result.meals = 2;
-            } else if (e > 12*60 + 30) {
-                 result.meals = 1; // 有過 12:30 且沒過 18:30，算 1 餐
-            } else {
-                 result.meals = 1; // 依照原始備註 "只要有加班，基本一餐"
-            }
-        } else {
-            result.meals = 0;
-        }
-
+        // annual / comp（補修）/ normal 都視為正常給薪，不扣款
       }
 
-      // 總加班費計算 (四捨五入)
-      result.otPay = result.h133 * hourly * 1.34 + result.h166 * hourly * 1.67 + result.h200 * hourly * 2.0 + result.h267 * hourly * 2.67;
-      result.otPay = Math.round(result.otPay);
-      
-      // 餐費計算
-      result.mealFee = result.meals * 130;
-      
-      // 補休折現 (用基本時薪)
-      result.compCash = result.comp * hourly; 
-
       return result;
+    }
+
+    function buildMonthTable() {
+      const month = Number(document.getElementById("monthSelect").value);
+      const tbody = document.getElementById("daysBody");
+      tbody.innerHTML = "";
+
+      const daysInMonth = new Date(currentYear, month, 0).getDate();
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(currentYear, month - 1, day);
+        const weekday = dateObj.getDay();
+        const isWeekend = (weekday === 0 || weekday === 6);
+        const holiday = isNationalHoliday(dateObj);
+        const isHolidayType = isWeekend || holiday;
+
+        const y = currentYear;
+        const m = String(month).padStart(2, "0");
+        const d = String(day).padStart(2, "0");
+        const dateStr = `${y}-${m}-${d}`;
+
+        if (!dayData[dateStr]) {
+          dayData[dateStr] = {
+            start: isHolidayType ? "00:00" : "08:00",
+            end: isHolidayType ? "00:00" : "17:00",
+            leaveType: "normal"
+          };
+        }
+
+        const stored = dayData[dateStr];
+
+        const tr = document.createElement("tr");
+        tr.dataset.date = dateStr;
+        tr.dataset.type = isHolidayType ? "holiday" : "weekday";
+
+        if (holiday) tr.classList.add("national-holiday-row");
+        else if (isWeekend) tr.classList.add("weekend-row");
+        else tr.classList.add("weekday-row");
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = dateStr;
+        if (holiday) tdDate.classList.add("holiday-date");
+        tr.appendChild(tdDate);
+
+        const tdWeek = document.createElement("td");
+        const weekNames = ["日","一","二","三","四","五","六"];
+        tdWeek.textContent = weekNames[weekday];
+        tr.appendChild(tdWeek);
+
+        const tdType = document.createElement("td");
+        tdType.textContent = isHolidayType ? "假日/國定假日" : "平日";
+        tr.appendChild(tdType);
+
+        const tdLeave = document.createElement("td");
+        const leaveSel = createLeaveSelect();
+        leaveSel.value = stored.leaveType || "normal";
+        tdLeave.appendChild(leaveSel);
+        tr.appendChild(tdLeave);
+
+        const tdStart = document.createElement("td");
+        const startSel = createSelect(allTimes, "start-time");
+        startSel.value = stored.start;
+        tdStart.appendChild(startSel);
+        tr.appendChild(tdStart);
+
+        const tdEnd = document.createElement("td");
+        const endOptions = isHolidayType ? allTimes : weekdayEndTimes;
+        const endSel = createSelect(endOptions, "end-time");
+        let endDefault = stored.end;
+        if (!endOptions.includes(endDefault)) {
+          endDefault = isHolidayType ? "00:00" : "17:00";
+        }
+        endSel.value = endDefault;
+        tdEnd.appendChild(endSel);
+        tr.appendChild(tdEnd);
+
+        const cols = ["hours133","hours166","hours200","hours267","compHours","otPay","mealCount","mealFee"];
+        for (const c of cols) {
+          const td = document.createElement("td");
+          td.className = c;
+          td.textContent = "0";
+          tr.appendChild(td);
+        }
+
+        leaveSel.addEventListener("change", () => {
+          dayData[dateStr].leaveType = leaveSel.value;
+          recalcRow(tr);
+          updateMonthlySummary();
+          updatePayPeriodSummary();
+        });
+
+        startSel.addEventListener("change", () => {
+          dayData[dateStr].start = startSel.value;
+          recalcRow(tr);
+          updateMonthlySummary();
+          updatePayPeriodSummary();
+        });
+
+        endSel.addEventListener("change", () => {
+          dayData[dateStr].end = endSel.value;
+          recalcRow(tr);
+          updateMonthlySummary();
+          updatePayPeriodSummary();
+        });
+
+        tbody.appendChild(tr);
+        recalcRow(tr);
+      }
+
+      updateMonthlySummary();
+      document.getElementById("payMonthSelect").value = String(month);
+      updatePayPeriodSummary();
+      saveState();
     }
 
     function recalcRow(tr) {
@@ -1218,175 +1300,80 @@
 
       const startMin = parseTimeToMinutes(startSel.value);
       const endMin = parseTimeToMinutes(endSel.value);
+
       const weekday = dateObj.getDay();
       const isWeekend = (weekday === 0 || weekday === 6);
       const holiday = isNationalHoliday(dateObj);
       const isHolidayType = isWeekend || holiday;
-      
-      let invalidRow = false;
-      if (!isHolidayType && endMin !== null && startMin !== null && endMin <= startMin) {
-        invalidRow = true;
+
+      if (startMin === null || endMin === null || endMin <= startMin) {
+        tr.querySelector(".hours133").textContent  = "0";
+        tr.querySelector(".hours166").textContent  = "0";
+        tr.querySelector(".hours200").textContent  = "0";
+        tr.querySelector(".hours267").textContent  = "0";
+        tr.querySelector(".compHours").textContent = "0";
+        tr.querySelector(".otPay").textContent     = "0";
+        tr.querySelector(".mealCount").textContent = "0";
+        tr.querySelector(".mealFee").textContent   = "0";
+
+        if (!isHolidayType) {
+          tr.classList.add("invalid-row");
+          tr.title = "下班時間早於或等於上班時間，當天不列入計算";
+        } else {
+          tr.classList.remove("invalid-row");
+          tr.title = "";
+        }
+        saveState();
+        return;
+      } else {
+        tr.classList.remove("invalid-row");
+        tr.title = "";
       }
-      tr.classList.toggle("invalid-row", invalidRow);
 
       const stats = computeDayStats(dateObj, startSel.value, endSel.value, hourly, leaveType);
-      
-      // 更新 dayData (必須先於 computeDayStats 執行，因為 dayData 會在 handler 中被更新)
-      dayData[dateStr].start = startSel.value;
-      dayData[dateStr].end = endSel.value;
-      dayData[dateStr].leaveType = leaveType;
-      dayData[dateStr].stats = stats; // 儲存計算結果，方便匯出
 
-      // 更新表格欄位
-      tr.querySelector(".hours133").textContent = fmtNumber(stats.h133);
-      tr.querySelector(".hours166").textContent = fmtNumber(stats.h166);
-      tr.querySelector(".hours200").textContent = fmtNumber(stats.h200);
-      tr.querySelector(".hours267").textContent = fmtNumber(stats.h267);
+      tr.querySelector(".hours133").textContent  = fmtNumber(stats.h133);
+      tr.querySelector(".hours166").textContent  = fmtNumber(stats.h166);
+      tr.querySelector(".hours200").textContent  = fmtNumber(stats.h200);
+      tr.querySelector(".hours267").textContent  = fmtNumber(stats.h267);
       tr.querySelector(".compHours").textContent = fmtNumber(stats.comp);
-      tr.querySelector(".otPay").textContent = fmtMoney(stats.otPay);
+      tr.querySelector(".otPay").textContent     = fmtMoney(stats.otPay);
       tr.querySelector(".mealCount").textContent = String(stats.meals);
-      tr.querySelector(".mealFee").textContent = fmtMoney(stats.mealFee);
-      
-      updateMonthlySummary();
-      updatePayPeriodSummary();
+      tr.querySelector(".mealFee").textContent   = fmtMoney(stats.mealFee);
+
       saveState();
-    }
-
-    function buildMonthTable() {
-      const month = Number(document.getElementById("monthSelect").value);
-      currentYear = Number(document.getElementById("yearInput").value);
-      const tbody = document.getElementById("daysBody");
-      tbody.innerHTML = "";
-
-      const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
-      const daysInMonth = new Date(currentYear, month, 0).getDate();
-
-      // 確保該年份/月份的資料結構存在
-      initYearData(currentYear);
-
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateObj = new Date(currentYear, month - 1, day);
-        const weekday = dateObj.getDay(); // 0 (Sun) to 6 (Sat)
-        const dateStr = `${currentYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        
-        // 載入或初始化該日期的資料
-        let stored = dayData[dateStr];
-        if (!stored) {
-          stored = { start: "08:00", end: "17:00", leaveType: "normal" };
-          dayData[dateStr] = stored;
-        }
-
-        const holiday = isNationalHoliday(dateObj);
-        const isWeekend = (weekday === 0 || weekday === 6);
-        const isHolidayType = isWeekend || holiday;
-
-        const tr = document.createElement("tr");
-        tr.dataset.date = dateStr;
-        
-        if (holiday) {
-          tr.className = "national-holiday-row";
-        } else if (isWeekend) {
-          tr.className = "weekend-row";
-        } else {
-          tr.className = "weekday-row";
-        }
-
-        // 1. 日期
-        const tdDate = document.createElement("td");
-        tdDate.textContent = dateStr.substring(5);
-        if (holiday) tdDate.classList.add("holiday-date");
-        tr.appendChild(tdDate);
-        
-        // 2. 星期
-        const tdWeekday = document.createElement("td");
-        tdWeekday.textContent = weekNames[weekday];
-        tr.appendChild(tdWeekday);
-        
-        // 3. 類型
-        const tdType = document.createElement("td");
-        tdType.textContent = isHolidayType ? "假日/國定假日" : "平日";
-        tr.appendChild(tdType);
-        
-        // 4. 假別
-        const tdLeave = document.createElement("td");
-        const leaveSel = createLeaveSelect();
-        leaveSel.value = stored.leaveType || "normal";
-        tdLeave.appendChild(leaveSel);
-        tr.appendChild(tdLeave);
-        
-        // 5. 上班時間 (Start)
-        const tdStart = document.createElement("td");
-        const startSel = createSelect(allTimes, "start-time");
-        startSel.value = stored.start;
-        tdStart.appendChild(startSel);
-        tr.appendChild(tdStart);
-        
-        // 6. 下班時間 (End)
-        const tdEnd = document.createElement("td");
-        const endOptions = isHolidayType ? allTimes : weekdayEndTimes;
-        const endSel = createSelect(endOptions, "end-time");
-        let endDefault = stored.end;
-        if (!endOptions.includes(endDefault)) {
-            endDefault = isHolidayType ? "00:00" : "17:00";
-        }
-        endSel.value = endDefault;
-        tdEnd.appendChild(endSel);
-        tr.appendChild(tdEnd);
-
-        // 7. 加班費與餐費欄位
-        const cols = ["hours133","hours166","hours200","hours267","compHours","otPay","mealCount","mealFee"];
-        for (const c of cols) {
-          const td = document.createElement("td");
-          td.className = c;
-          td.textContent = "0";
-          tr.appendChild(td);
-        }
-
-        // 事件監聽 (呼叫 recalcRow 會自動 saveState)
-        leaveSel.addEventListener("change", () => recalcRow(tr));
-        startSel.addEventListener("change", () => recalcRow(tr));
-        endSel.addEventListener("change", () => recalcRow(tr));
-
-        tbody.appendChild(tr);
-        
-        // 首次計算並顯示
-        recalcRow(tr);
-      }
-    }
-
-    function initYearData(year) {
-        // 由於我們使用 dayData 統一儲存，這個函式目前只確保了 currentYear
-        // 但在未來如果需要處理跨年份資料結構，此處是入口
-        // 這裡確保 dayData 已經包含所有日期或會在使用時自動初始化
     }
 
     function updateMonthlySummary() {
       const month = Number(document.getElementById("monthSelect").value);
-      let sum133 = 0, sum166 = 0, sum200 = 0, sum267 = 0, sumComp = 0;
-      let sumOTPay = 0, sumMeals = 0, sumMealFee = 0;
-      const hourly = getHourlyBase();
       const daysInMonth = new Date(currentYear, month, 0).getDate();
+      const hourly = getHourlyBase();
+
+      let sum133 = 0, sum166 = 0, sum200 = 0, sum267 = 0;
+      let sumComp = 0, sumOTPay = 0, sumMeals = 0, sumMealFee = 0;
 
       for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${currentYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const dateObj = new Date(currentYear, month - 1, day);
+        const m = String(month).padStart(2, "0");
+        const d = String(day).padStart(2, "0");
+        const dateStr = `${currentYear}-${m}-${d}`;
         const data = dayData[dateStr];
-        
-        if (data && data.stats) {
-          const stats = data.stats;
-          sum133 += stats.h133;
-          sum166 += stats.h166;
-          sum200 += stats.h200;
-          sum267 += stats.h267;
-          sumComp += stats.comp;
-          sumOTPay += stats.otPay;
-          sumMeals += stats.meals;
-          sumMealFee += stats.mealFee;
-        }
+        if (!data) continue;
+
+        const stats = computeDayStats(dateObj, data.start, data.end, hourly, data.leaveType || "normal");
+        sum133 += stats.h133;
+        sum166 += stats.h166;
+        sum200 += stats.h200;
+        sum267 += stats.h267;
+        sumComp += stats.comp;
+        sumOTPay += stats.otPay;
+        sumMeals += stats.meals;
+        sumMealFee += stats.mealFee;
       }
 
       const totalHours = sum133 + sum166 + sum200 + sum267;
       const compCash = sumComp * hourly;
-      
+
       document.getElementById("sum133").textContent = fmtNumber(sum133);
       document.getElementById("sum166").textContent = fmtNumber(sum166);
       document.getElementById("sum200").textContent = fmtNumber(sum200);
@@ -1397,9 +1384,6 @@
       document.getElementById("sumMealsMonthly").textContent = String(sumMeals);
       document.getElementById("sumMealFeeMonthly").textContent = fmtMoney(sumMealFee);
       document.getElementById("compCashMonthly").textContent = fmtMoney(compCash);
-      
-      // 更新顯示設定
-      applyVisibilitySettings();
     }
 
     function getSettlementDay(month) {
@@ -1422,88 +1406,79 @@
     function updatePayPeriodSummary() {
       const payMonth = Number(document.getElementById("payMonthSelect").value);
       const hourly = getHourlyBase();
-      const endDay = getSettlementDay(payMonth);
-      
-      let startDate, endDate;
-      let startDay;
 
-      // 當月結算日
-      endDate = new Date(currentYear, payMonth - 1, endDay);
-      
+      const endDay = getSettlementDay(payMonth);
+      let startDate, endDate;
+
       if (payMonth === 1) {
-        // 1月結算日 (假設從 1/1 開始算)
         startDate = new Date(currentYear, 0, 1);
+        endDate = new Date(currentYear, 0, endDay);
       } else {
-        // 其他月份：從上一個月份的結算日+1天開始
+        endDate = new Date(currentYear, payMonth - 1, endDay);
         const prevMonth = payMonth - 1;
         const prevCutoffDay = getSettlementDay(prevMonth);
         const daysPrevMonth = new Date(currentYear, prevMonth, 0).getDate();
-        
-        startDay = Math.min(prevCutoffDay + 1, daysPrevMonth + 1); // 如果上個月結算日是 31，則 startDay 為 32，會自動跳到下個月 1 號
-        startDate = new Date(currentYear, prevMonth - 1, startDay); // JavaScript 會自動校正
-        
-        // 處理跨年問題 (PayMonth = 1 時，要從前一年的 12 月結算日+1開始)
-        if (payMonth === 1 && currentYear > 2000) {
-            const prevYear = currentYear - 1;
-            const cutoff12PrevYear = getSettlementDay(12); // 使用當前設定的 12 月結算日
-            const daysPrevYear12 = new Date(prevYear, 12, 0).getDate(); // 12 月天數
-            startDay = Math.min(cutoff12PrevYear + 1, daysPrevYear12 + 1);
-            startDate = new Date(prevYear, 12 - 1, startDay); // 修正到前一年 12 月
-        }
+        const startDay = Math.min(prevCutoffDay + 1, daysPrevMonth);
+        startDate = new Date(currentYear, prevMonth - 1, startDay);
       }
-      
-      // 確保日期是 YYYY-MM-DD
-      const startStr = formatDateLocal(startDate);
-      const endStr = formatDateLocal(endDate);
-      
-      // 更新結算區間顯示
-      const periodText = `結算區間：${startStr} 到 ${endStr} (含頭尾)`;
-      document.getElementById("payPeriodLabel").textContent = periodText;
-      document.getElementById("payPeriodLabel2").textContent = periodText;
 
-      // 累計計算
-      let currentDate = new Date(startDate);
-      let sumOTPay = 0, sumComp = 0, sumSickH = 0, sumPersonalH = 0;
-      let sumSickDed = 0, sumPersonalDed = 0;
+      if (startDate > endDate) {
+        startDate = new Date(currentYear, payMonth - 1, 1);
+      }
+
+      const labelText = `結算區間：${formatDateLocal(startDate)} ～ ${formatDateLocal(endDate)}`;
+      document.getElementById("payPeriodLabel").textContent = labelText;
+      document.getElementById("payPeriodLabel2").textContent = labelText;
+
+      let sumOTPay = 0, sumComp = 0;
+      let sumSickH = 0, sumPersonalH = 0, sumSickDed = 0, sumPersonalDed = 0;
       let ppH133 = 0, ppH166 = 0, ppH200 = 0, ppH267 = 0;
 
-      while (currentDate <= endDate) {
-        const dateStr = formatDateLocal(currentDate);
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        const dateStr = `${y}-${m}-${dd}`;
         const data = dayData[dateStr];
-        
-        if (data && data.stats) {
-          const stats = data.stats;
-          sumOTPay += stats.otPay;
-          sumComp += stats.comp;
-          sumSickH += stats.sickLeaveHours;
-          sumPersonalH += stats.personalLeaveHours;
-          sumSickDed += stats.sickDeduction;
-          sumPersonalDed += stats.personalDeduction;
-          ppH133 += stats.h133;
-          ppH166 += stats.h166;
-          ppH200 += stats.h200;
-          ppH267 += stats.h267;
-        }
+        if (!data) continue;
 
-        currentDate.setDate(currentDate.getDate() + 1);
+        const stats = computeDayStats(d, data.start, data.end, hourly, data.leaveType || "normal");
+        sumOTPay += stats.otPay;
+        sumComp += stats.comp;
+        sumSickH += stats.sickLeaveHours;
+        sumPersonalH += stats.personalLeaveHours;
+        sumSickDed += stats.sickDeduction;
+        sumPersonalDed += stats.personalDeduction;
+        ppH133 += stats.h133;
+        ppH166 += stats.h166;
+        ppH200 += stats.h200;
+        ppH267 += stats.h267;
       }
 
-      // 總結算
       const compCash = sumComp * hourly;
       const ppTotalHours = ppH133 + ppH166 + ppH200 + ppH267;
-      
-      const fixedIncome = Number(document.getElementById("fixedIncomeDisplay").textContent.replace(/,/g, "")) || 0;
-      const fixedOutgo = Number(document.getElementById("fixedOutgoDisplay").textContent.replace(/,/g, "")) || 0;
 
+      const base = Number(document.getElementById("baseSalary").value) || 0;
+      const duty = Number(document.getElementById("dutyAllowance").value) || 0;
+      const traffic = Number(document.getElementById("trafficAllowance").value) || 0;
+      const maint = Number(document.getElementById("maintenanceAllowance").value) || 0;
+      const stockIn = Number(document.getElementById("stockCompanyIncome").value) || 0;
+      const labor = Number(document.getElementById("laborInsurance").value) || 0;
+      const health = Number(document.getElementById("healthInsurance").value) || 0;
+      const stockOut = Number(document.getElementById("stockCompanyDeduct").value) || 0;
+      const stockSelf = Number(document.getElementById("stockSelfDeduct").value) || 0;
+
+      const fixedIncome = base + duty + traffic + maint + stockIn;
+      const fixedOutgo = labor + health + stockOut + stockSelf;
       const totalLeaveDeduction = sumSickDed + sumPersonalDed;
+
       const onCallCount = Number(document.getElementById("onCallCount").value) || 0;
       const onCallRate = 1500;
       const onCallPay = onCallCount * onCallRate;
-      
+
       const extraIncomeNoComp = sumOTPay + onCallPay;
       const totalIncome = fixedIncome + extraIncomeNoComp + compCash - fixedOutgo - totalLeaveDeduction;
 
-      // 更新顯示
       document.getElementById("ppTotalHours").textContent = fmtNumber(ppTotalHours);
       document.getElementById("ppH133").textContent = fmtNumber(ppH133);
       document.getElementById("ppH166").textContent = fmtNumber(ppH166);
@@ -1518,60 +1493,67 @@
       document.getElementById("onCallCountDisplay").textContent = String(onCallCount);
       document.getElementById("onCallAmountDisplay").textContent = fmtMoney(onCallPay);
       document.getElementById("totalIncome").textContent = fmtMoney(totalIncome);
-      
-      // 更新顯示設定
-      applyVisibilitySettings();
     }
 
     function applyVisibilitySettings() {
-      const showOT = document.getElementById("chkShowMonthlyOT").checked;
-      const showMeal = document.getElementById("chkShowMonthlyMeal").checked;
-      const showSalary = document.getElementById("chkShowSalary").checked;
+      const showOT    = document.getElementById("chkShowMonthlyOT").checked;
+      const showMeal  = document.getElementById("chkShowMonthlyMeal").checked;
+      const showSalary= document.getElementById("chkShowSalary").checked;
 
-      document.getElementById("sectionMonthlyOT").classList.toggle("hidden", !showOT);
-      document.getElementById("sectionMonthlyMeal").classList.toggle("hidden", !showMeal);
-      document.getElementById("sectionSalary").classList.toggle("hidden", !showSalary);
+      document.getElementById("sectionMonthlyOT").style.display   = showOT    ? "" : "none";
+      document.getElementById("sectionMonthlyMeal").style.display = showMeal  ? "" : "none";
+      document.getElementById("sectionSalary").style.display      = showSalary? "" : "none";
 
-      // 隱藏/顯示月度統計欄位
-      const monthlyFieldIds = [
-        "fieldMonthlyTotalHours", "fieldMonthly133", "fieldMonthly166",
-        "fieldMonthly200", "fieldMonthly267", "fieldMonthlyCompHours",
-        "fieldMonthlyCompCash", "fieldMonthlyOTPay",
-        "fieldMonthlyMealCount", "fieldMonthlyMealFee"
-      ];
-      monthlyFieldIds.forEach(id => {
-        const itemEl = document.getElementById("item" + id.substring(6)); // e.g., itemMonthlyTotalHours
-        if (itemEl) {
-          const checkboxEl = document.getElementById(id);
-          itemEl.classList.toggle("hidden", checkboxEl && !checkboxEl.checked);
-        }
-      });
-      
-      // 隱藏/顯示薪資試算欄位
-      const salaryFieldIds = [
-        "fieldSalaryFixIn", "fieldSalaryFixOut", "fieldSalaryTotalHours",
-        "fieldSalary133", "fieldSalary166", "fieldSalary200", "fieldSalary267",
-        "fieldSalaryOTPay", "fieldSalaryCompCash",
-        "fieldSalaryOncallCount", "fieldSalaryOncallAmount",
-        "fieldSalarySickH", "fieldSalarySickDed",
-        "fieldSalaryPersonalH", "fieldSalaryPersonalDed",
-        "fieldSalaryTotalIncome"
-      ];
-      salaryFieldIds.forEach(id => {
-        const itemEl = document.getElementById("item" + id.substring(6)); // e.g., itemSalaryFixIn
-        if (itemEl) {
-          const checkboxEl = document.getElementById(id);
-          itemEl.classList.toggle("hidden", checkboxEl && !checkboxEl.checked);
-        }
-      });
+      function toggleField(checkboxId, itemId) {
+        const chk = document.getElementById(checkboxId);
+        const item = document.getElementById(itemId);
+        if (!chk || !item) return;
+        item.style.display = chk.checked ? "" : "none";
+      }
+
+      toggleField("fieldMonthlyTotalHours", "itemMonthlyTotalHours");
+      toggleField("fieldMonthly133",        "itemMonthly133");
+      toggleField("fieldMonthly166",        "itemMonthly166");
+      toggleField("fieldMonthly200",        "itemMonthly200");
+      toggleField("fieldMonthly267",        "itemMonthly267");
+      toggleField("fieldMonthlyCompHours",  "itemMonthlyCompHours");
+      toggleField("fieldMonthlyCompCash",   "itemMonthlyCompCash");
+      toggleField("fieldMonthlyOTPay",      "itemMonthlyOTPay");
+
+      toggleField("fieldMonthlyMealCount",  "itemMonthlyMealCount");
+      toggleField("fieldMonthlyMealFee",    "itemMonthlyMealFee");
+
+      toggleField("fieldSalaryFixIn",       "itemSalaryFixIn");
+      toggleField("fieldSalaryFixOut",      "itemSalaryFixOut");
+      toggleField("fieldSalaryTotalHours",  "itemSalaryTotalHours");
+      toggleField("fieldSalary133",         "itemSalary133");
+      toggleField("fieldSalary166",         "itemSalary166");
+      toggleField("fieldSalary200",         "itemSalary200");
+      toggleField("fieldSalary267",         "itemSalary267");
+      toggleField("fieldSalaryOTPay",       "itemSalaryOTPay");
+      toggleField("fieldSalaryCompCash",    "itemSalaryCompCash");
+      toggleField("fieldSalaryOncallCount", "itemSalaryOncallCount");
+      toggleField("fieldSalaryOncallAmount","itemSalaryOncallAmount");
+      toggleField("fieldSalarySickH",       "itemSalarySickH");
+      toggleField("fieldSalarySickDed",     "itemSalarySickDed");
+      toggleField("fieldSalaryPersonalH",   "itemSalaryPersonalH");
+      toggleField("fieldSalaryPersonalDed", "itemSalaryPersonalDed");
+      toggleField("fieldSalaryTotalIncome", "itemSalaryTotalIncome");
+    }
+
+    function recalcAll() {
+      recalcSalaryStructureSummary();
+      buildMonthTable();
+      updatePayPeriodSummary();
+      applyVisibilitySettings();
+      saveState();
     }
 
     function exportJSON() {
       try {
-        const state = getCurrentStateObject();
-        const json = JSON.stringify(state, null, 2);
-        
-        const blob = new Blob([json], { type: "application/json" });
+        saveState();
+        const raw = localStorage.getItem(STORAGE_KEY) || "{}";
+        const blob = new Blob([raw], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         const now = new Date();
@@ -1603,23 +1585,21 @@
             const m = String(month).padStart(2, "0");
             const d = String(day).padStart(2, "0");
             const dateStr = `${y}-${m}-${d}`;
-            
             const data = dayData[dateStr] || { start: "00:00", end: "00:00", leaveType: "normal" };
             const weekday = dateObj.getDay();
             const isWeekend = (weekday === 0 || weekday === 6);
             const holiday = isNationalHoliday(dateObj);
             const isHolidayType = isWeekend || holiday;
+
             const typeText = isHolidayType ? "假日/國定假日" : "平日";
-            
             let leaveText = "正常上班";
             if (data.leaveType === "annual") leaveText = "特休";
-            if (data.leaveType === "comp") leaveText = "補休";
-            if (data.leaveType === "sick") leaveText = "病假";
-            if (data.leaveType === "personal") leaveText = "事假";
+            else if (data.leaveType === "comp") leaveText = "補修";
+            else if (data.leaveType === "sick") leaveText = "病假";
+            else if (data.leaveType === "personal") leaveText = "事假";
 
-            // 重新計算 stats 以確保是最新的 (雖然每次輸入都會存)
             const stats = computeDayStats(dateObj, data.start, data.end, hourly, data.leaveType || "normal");
-            
+
             const row = [
               dateStr,
               weekNames[weekday],
@@ -1627,31 +1607,29 @@
               leaveText,
               data.start,
               data.end,
-              fmtNumber(stats.h133),
-              fmtNumber(stats.h166),
-              fmtNumber(stats.h200),
-              fmtNumber(stats.h267),
-              fmtNumber(stats.comp),
-              fmtMoney(stats.otPay),
-              String(stats.meals),
-              fmtMoney(stats.mealFee),
-              fmtNumber(stats.sickLeaveHours),
-              fmtMoney(stats.sickDeduction),
-              fmtNumber(stats.personalLeaveHours),
-              fmtMoney(stats.personalDeduction)
+              stats.h133.toFixed(2),
+              stats.h166.toFixed(2),
+              stats.h200.toFixed(2),
+              stats.h267.toFixed(2),
+              stats.comp.toFixed(2),
+              Math.round(stats.otPay),
+              stats.meals,
+              Math.round(stats.mealFee),
+              stats.sickLeaveHours.toFixed(2),
+              Math.round(stats.sickDeduction),
+              stats.personalLeaveHours.toFixed(2),
+              Math.round(stats.personalDeduction)
             ];
             rows.push(row.join(","));
           }
         }
 
-        const csvContent = "\ufeff" + rows.join("\n"); // \ufeff for BOM to ensure Chinese compatibility
+        const csvContent = rows.join("\r\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        const now = new Date();
-        const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
         a.href = url;
-        a.download = `xunde_overtime_detail_${ts}.csv`;
+        a.download = `xunde_overtime_${currentYear}.csv`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -1663,80 +1641,91 @@
     }
 
     function exportPDF() {
-      // 呼叫瀏覽器列印功能
       window.print();
     }
 
-    function renderRandomMeme() {
-      const category = document.getElementById("memeCategory").value;
-      const filteredMemes = memeList.filter(m => category === 'all' || m.tag === category || m.tag === 'mix');
-      if (filteredMemes.length === 0) {
-        document.getElementById("memeTitle").textContent = "沒有梗了...";
-        document.getElementById("memeSubtitle").textContent = "請切換分類或加入新梗。";
-        return;
+    window.addEventListener("DOMContentLoaded", () => {
+      // 梗圖
+      renderRandomMeme();
+      const memeBtn = document.getElementById("btnChangeMeme");
+      if (memeBtn) memeBtn.addEventListener("click", () => {
+        renderRandomMeme();
+        saveState();
+      });
+      const memeCategory = document.getElementById("memeCategory");
+      if (memeCategory) memeCategory.addEventListener("change", () => {
+        renderRandomMeme();
+        saveState();
+      });
+
+      const yearInput = document.getElementById("yearInput");
+      if (yearInput) {
+        yearInput.addEventListener("change", () => {
+          const y = parseInt(yearInput.value, 10);
+          if (!isNaN(y) && y >= 2000 && y <= 2100) {
+            currentYear = y;
+            initYearData(currentYear);
+            buildMonthTable();
+            updatePayPeriodSummary();
+            saveState();
+          }
+        });
       }
-      const randomIndex = Math.floor(Math.random() * filteredMemes.length);
-      const meme = filteredMemes[randomIndex];
-      document.getElementById("memeTitle").textContent = meme.title;
-      document.getElementById("memeSubtitle").textContent = meme.subtitle;
-    }
-    
-    // =================================================================
-    // 初始化與事件監聽
-    // =================================================================
-    
-    async function init() {
-      // 載入 Sheets 雲端資料 (等待完成)
-      await loadState();
-      
-      // 初始化年份資料
+
+      // 載入 localStorage 狀態
+      loadState();
+
+      if (yearInput) yearInput.value = currentYear;
       initYearData(currentYear);
-      document.getElementById("yearInput").value = currentYear;
-      
-      // 首次計算和渲染
       recalcSalaryStructureSummary();
       buildMonthTable();
-      updatePayPeriodSummary(); // 確保結算區間在載入後立即更新
       applyVisibilitySettings();
-      renderRandomMeme();
-      
-      // 綁定所有 input/select 事件監聽 (事件觸發時會呼叫 saveState)
-      
-      // 薪資結構輸入監聽
-      [
-        "baseSalary", "dutyAllowance", "trafficAllowance", "maintenanceAllowance",
-        "stockCompanyIncome", "laborInsurance", "healthInsurance",
-        "stockCompanyDeduct", "stockSelfDeduct"
-      ].forEach(id => {
+      updatePayPeriodSummary();
+
+      document.getElementById("btnSettings").addEventListener("click", () => {
+        const panel = document.getElementById("settingsPanel");
+        panel.classList.toggle("hidden");
+        saveState();
+      });
+
+      ["chkShowMonthlyOT","chkShowMonthlyMeal","chkShowSalary"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener("input", () => {
-            recalcSalaryStructureSummary();
-            saveState(); // 儲存狀態
+        if (el) el.addEventListener("change", () => {
+          applyVisibilitySettings();
+          saveState();
         });
       });
 
-      // 年份/月份/onCall 選擇監聽
-      document.getElementById("yearInput").addEventListener("change", () => { 
-        currentYear = Number(document.getElementById("yearInput").value);
-        initYearData(currentYear);
-        buildMonthTable();
-        updatePayPeriodSummary();
-        saveState();
-      });
-      document.getElementById("monthSelect").addEventListener("change", () => {
-        buildMonthTable();
-        saveState();
-      }); // buildMonthTable 會呼叫 updateMonthlySummary/updatePayPeriodSummary/saveState
-      document.getElementById("payMonthSelect").addEventListener("change", () => {
-        updatePayPeriodSummary();
-        saveState();
-      });
-      document.getElementById("onCallCount").addEventListener("input", () => {
-        updatePayPeriodSummary();
-        saveState();
+      const fieldCheckboxIds = [
+        "fieldMonthlyTotalHours","fieldMonthly133","fieldMonthly166",
+        "fieldMonthly200","fieldMonthly267","fieldMonthlyCompHours",
+        "fieldMonthlyCompCash","fieldMonthlyOTPay",
+        "fieldMonthlyMealCount","fieldMonthlyMealFee",
+        "fieldSalaryFixIn","fieldSalaryFixOut","fieldSalaryTotalHours",
+        "fieldSalary133","fieldSalary166","fieldSalary200","fieldSalary267",
+        "fieldSalaryOTPay","fieldSalaryCompCash",
+        "fieldSalaryOncallCount","fieldSalaryOncallAmount",
+        "fieldSalarySickH","fieldSalarySickDed",
+        "fieldSalaryPersonalH","fieldSalaryPersonalDed",
+        "fieldSalaryTotalIncome"
+      ];
+      fieldCheckboxIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", () => {
+          applyVisibilitySettings();
+          saveState();
+        });
       });
 
-      // 結算日輸入監聽
+      const onCallInput = document.getElementById("onCallCount");
+      if (onCallInput) {
+        onCallInput.addEventListener("input", () => {
+          updatePayPeriodSummary();
+          saveState();
+        });
+      }
+
+      // 結算日輸入時也存
       for (let m = 1; m <= 12; m++) {
         const el = document.getElementById("cutoff" + m);
         if (el) {
@@ -1747,67 +1736,27 @@
         }
       }
 
-      // 顯示設定勾選監聽
-      [
-        "chkShowMonthlyOT", "chkShowMonthlyMeal", "chkShowSalary",
-        "fieldMonthlyTotalHours", "fieldMonthly133", "fieldMonthly166",
-        "fieldMonthly200", "fieldMonthly267", "fieldMonthlyCompHours",
-        "fieldMonthlyCompCash", "fieldMonthlyOTPay",
-        "fieldMonthlyMealCount", "fieldMonthlyMealFee",
-        "fieldSalaryFixIn", "fieldSalaryFixOut", "fieldSalaryTotalHours",
-        "fieldSalary133", "fieldSalary166", "fieldSalary200", "fieldSalary267",
-        "fieldSalaryOTPay", "fieldSalaryCompCash",
-        "fieldSalaryOncallCount", "fieldSalaryOncallAmount",
-        "fieldSalarySickH", "fieldSalarySickDed",
-        "fieldSalaryPersonalH", "fieldSalaryPersonalDed",
-        "fieldSalaryTotalIncome"
-      ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener("change", () => {
-          applyVisibilitySettings();
-          saveState();
-        });
-      });
-
-      // 梗圖按鈕監聽
-      document.getElementById("btnChangeMeme").addEventListener("click", renderRandomMeme);
-      document.getElementById("memeCategory").addEventListener("change", renderRandomMeme);
-
-      // 設定面板開關
-      document.getElementById("btnSettings").addEventListener("click", () => {
-        document.getElementById("settingsPanel").classList.toggle("hidden");
-      });
-
-      // 匯入 JSON (上傳至 Sheets)
+      // 匯入 JSON
       const importInput = document.getElementById("importJsonInput");
       if (importInput) {
-        importInput.addEventListener("change", async (e) => { // 必須是 async
+        importInput.addEventListener("change", (e) => {
           const file = e.target.files[0];
           if (!file) return;
           const reader = new FileReader();
-          reader.onload = async (ev) => {
+          reader.onload = (ev) => {
             try {
               const text = ev.target.result;
-              JSON.parse(text); // 驗證 JSON 格式
-              
-              // 1. 上傳至 Google Sheets (覆蓋)
-              const success = await updateSheetContent(text);
-              if (!success) {
-                  alert("匯入失敗：無法上傳至雲端 Google Sheets。");
-                  return;
-              }
-
-              // 2. 重新載入狀態並渲染介面
-              await loadState();
+              JSON.parse(text);
+              localStorage.setItem(STORAGE_KEY, text);
+              loadState();
               initYearData(currentYear);
               recalcSalaryStructureSummary();
               buildMonthTable();
               applyVisibilitySettings();
               updatePayPeriodSummary();
               renderRandomMeme();
-              
-              alert("匯入成功！資料已同步至 Google Sheets。");
-              
+              saveState();
+              alert("匯入成功！");
             } catch (err) {
               console.warn(err);
               alert("匯入失敗，檔案格式可能有問題");
@@ -1815,13 +1764,10 @@
               importInput.value = "";
             }
           };
-          reader.readAsText(file);
+          reader.readAsText(file, "utf-8");
         });
       }
-    }
-
-    document.addEventListener("DOMContentLoaded", init);
+    });
   </script>
 </body>
-
 </html>
